@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Baguio AI Transit (Thesis Version)</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+body { margin:0; font-family:Segoe UI; }
+
+#map { height:100vh; }
+
+#panel {
+    position:absolute;
+    top:10px;
+    left:10px;
+    background:rgba(0,0,0,0.75);
+    padding:15px;
+    border-radius:10px;
+    color:white;
+    z-index:1000;
+}
+
+select, button {
+    width:180px;
+    margin:5px 0;
+    padding:6px;
+    border-radius:5px;
+    border:none;
+}
+
+button {
+    background:#4CAF50;
+    color:white;
+}
+</style>
+</head>
+
+<body>
+
+<div id="panel">
+    <h3>🌲 Baguio AI Transit</h3>
+    <select id="start"></select><br>
+    <select id="end"></select><br>
+    <button onclick="route()">Find Route</button>
+    <p id="info"></p>
+</div>
+
+<div id="map"></div>
+
+<script>
+
+const stations = {
+    "Marcos Highway": [16.4025,120.5800],
+    "Poblacion Tuba": [16.4080,120.5830],
+    "Junction": [16.4120,120.5900],
+    "Bakakeng": [16.4200,120.6000],
+    "Moldex": [16.4235,120.6050],
+    "Legarda": [16.4155,120.5980],
+    "BGH": [16.4145,120.6020],
+    "Camp 8": [16.4050,120.6100],
+    "Camp 7": [16.3950,120.6150],
+    "Scout Barrio": [16.4200,120.6150],
+    "Panagbenga Park": [16.4230,120.6250],
+    "Camp John Hay": [16.4100,120.6300],
+    "MOOG": [16.4000,120.6350],
+    "Loakan": [16.3950,120.6250]
+};
+
+const map = L.map('map').setView([16.41,120.60], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+let graph = {};
+
+function dist(a,b){
+    let dx = a[0]-b[0];
+    let dy = a[1]-b[1];
+    return Math.sqrt(dx*dx + dy*dy);
+}
+
+function connect(a,b){
+    if(!graph[a]) graph[a]={};
+    if(!graph[b]) graph[b]={};
+    graph[a][b] = dist(stations[a],stations[b]);
+    graph[b][a] = graph[a][b];
+}
+
+connect("Marcos Highway","Poblacion Tuba");
+connect("Poblacion Tuba","Junction");
+connect("Junction","Bakakeng");
+connect("Bakakeng","Moldex");
+connect("Moldex","Legarda");
+connect("Legarda","BGH");
+connect("BGH","Camp 8");
+connect("Camp 8","Camp 7");
+
+connect("BGH","Scout Barrio");
+connect("Scout Barrio","Panagbenga Park");
+connect("Panagbenga Park","Camp John Hay");
+connect("Camp John Hay","MOOG");
+connect("MOOG","Loakan");
+connect("Loakan","Camp 7");
+
+for(let s in stations){
+    L.marker(stations[s]).addTo(map).bindPopup(s);
+}
+
+let startSel = document.getElementById("start");
+let endSel = document.getElementById("end");
+
+for(let s in stations){
+    startSel.innerHTML += `<option>${s}</option>`;
+    endSel.innerHTML += `<option>${s}</option>`;
+}
+
+function dijkstra(start,end){
+    let distMap={}, prev={}, q=[];
+
+    for(let n in graph){
+        distMap[n]=Infinity;
+        prev[n]=null;
+    }
+
+    distMap[start]=0;
+    q.push({n:start,d:0});
+
+    while(q.length){
+        q.sort((a,b)=>a.d-b.d);
+        let {n}=q.shift();
+
+        if(n===end) break;
+
+        for(let nb in graph[n]){
+            let alt = distMap[n]+graph[n][nb];
+            if(alt<distMap[nb]){
+                distMap[nb]=alt;
+                prev[nb]=n;
+                q.push({n:nb,d:alt});
+            }
+        }
+    }
+
+    let path=[], cur=end;
+    while(cur){
+        path.unshift(cur);
+        cur=prev[cur];
+    }
+
+    return {path, distance: distMap[end]};
+}
+
+let routeLine;
+
+function route(){
+    let start=startSel.value;
+    let end=endSel.value;
+
+    let res = dijkstra(start,end);
+
+    if(routeLine) map.removeLayer(routeLine);
+
+    let latlngs = res.path.map(p=>stations[p]);
+
+    routeLine = L.polyline(latlngs,{color:'yellow',weight:6}).addTo(map);
+
+    map.fitBounds(routeLine.getBounds());
+
+    document.getElementById("info").innerHTML =
+        "Distance: "+(res.distance*111).toFixed(2)+" km";
+        <a href= "https: Baguio Map Train" target="_blank">Open Wikipedia in a new tab</a>
+}
+
+</script>
+
+</body>
+</html>
